@@ -11,6 +11,13 @@ public class User {
     private int gamesPlayed = 0;
     private int gamesWon = 0;
 
+    public User(String userid, String name, String email, String passHash) {
+        this.userid = userid;
+        this.name = name;
+        this.email = email;
+        this.passHash = passHash;
+    }
+
     public User(String userid, String name, String email, String passHash, int gamesPlayed, int gamesWon) {
         this.userid = userid;
         this.name = name;

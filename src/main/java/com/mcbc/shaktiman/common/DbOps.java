@@ -32,7 +32,20 @@ public class DbOps {
             ptsmt.execute();
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Error creating user");
+            throw new RuntimeException("Userid already exists");
+        }
+    }
+
+    public static boolean verifyLogin(String userid, String passHash) {
+        try {
+            PreparedStatement ptsmt = con.prepareStatement("SELECT * from users where userid=? and passHash=?");
+            ptsmt.setString(1, userid);
+            ptsmt.setString(2, passHash);
+            ResultSet rs = ptsmt.executeQuery();
+            return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error while getting user information");
         }
     }
 
