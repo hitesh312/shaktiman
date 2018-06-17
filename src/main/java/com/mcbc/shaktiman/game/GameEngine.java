@@ -1,6 +1,7 @@
 package com.mcbc.shaktiman.game;
 
 import com.mcbc.shaktiman.common.Constant;
+import com.mcbc.shaktiman.game.teendopanch.GameImpl;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.util.HashMap;
@@ -25,7 +26,7 @@ public class GameEngine {
         do {
             key = Constant.wordList.get(rand.nextInt(Constant.wordCount)) + "_" + Constant.wordList.get(rand.nextInt(Constant.wordCount));
         } while (activeGames.containsKey(key));
-        activeGames.put(key, new Game());
+        activeGames.put(key, new GameImpl(key));
         return key;
     }
 

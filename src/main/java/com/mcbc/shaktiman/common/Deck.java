@@ -2,11 +2,13 @@ package com.mcbc.shaktiman.common;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 public class Deck {
     public static int FULLDECK = 0;
     public static int HALFDECK = 1;
+    private static HashMap<String, Card> cards;
     private static List<Card> fullDeck;
     private static List<Card> halfDeck;
 
@@ -17,6 +19,7 @@ public class Deck {
             for (CardNumber number : CardNumber.values()) {
                 Card card = new Card(number, type);
                 fullDeck.add(card);
+                cards.put(card.toString(), card);
                 if (number.compareTo(CardNumber.SEVEN) > 0 ||
                         (number == CardNumber.SEVEN &&
                                 (type == CardType.SPADE || type == CardType.HEART)
@@ -47,5 +50,9 @@ public class Deck {
             result.add(new ArrayList<>(deck.subList(0, i + handSize)));
         }
         return result;
+    }
+
+    public static Card getCard(String card) {
+        return cards.get(card);
     }
 }

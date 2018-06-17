@@ -4,6 +4,14 @@ public class Card {
     private CardNumber cardNumber;
     private CardType cardType;
 
+    public CardNumber getCardNumber() {
+        return cardNumber;
+    }
+
+    public CardType getCardType() {
+        return cardType;
+    }
+
     public Card(CardNumber cardNumber, CardType cardType) {
         this.cardNumber = cardNumber;
         this.cardType = cardType;
@@ -19,6 +27,6 @@ public class Card {
 
     @Override
     public String toString() {
-        return cardNumber + " of " + cardType;
+        return cardNumber + " " + cardType;
     }
 }
