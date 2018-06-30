@@ -15,6 +15,7 @@ public class Deck {
     static {
         halfDeck = new ArrayList<>();
         fullDeck = new ArrayList<>();
+        cards = new HashMap<>();
         for (CardType type : CardType.values()) {
             for (CardNumber number : CardNumber.values()) {
                 Card card = new Card(number, type);

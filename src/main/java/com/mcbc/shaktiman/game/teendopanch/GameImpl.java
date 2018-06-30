@@ -13,24 +13,30 @@ public class GameImpl extends Game {
 
     private GameState gameState;
     private CardType trump = null;
+    private CardType chance = null;
     private Card[] currentCard;
     private int startingUser = 0;
     private int turn = 0;
     private int[] userPoints;
+    private boolean[] userOnline;
 
     public GameImpl(String gameID) {
         startingUser = 0;
         turn = 0;
         userPoints = new int[3];
         currentCard = new Card[3];
+        userOnline = new boolean[3];
+        players = new ArrayList<>();
         currentCard[0] = null;
         currentCard[1] = null;
         currentCard[2] = null;
         userPoints[0] = 0;
         userPoints[1] = 0;
         userPoints[2] = 0;
+        userOnline[0] = false;
+        userOnline[1] = false;
+        userOnline[2] = false;
         numberOfPlayers = 3;
-        players = new ArrayList<>();
         this.gameID = gameID;
         cards = Deck.getRandomShuffle(3, Deck.HALFDECK);
         gameState = GameState.CREATED;
@@ -41,11 +47,10 @@ public class GameImpl extends Game {
     public synchronized boolean join(User user) {
         boolean res = super.join(user);
         if (res) {
-            gameState = GameState.valueOf("USER" + players.size() + "JOINED");
+            gameState = GameState.valueOf("USER" + (players.size() - 1) + "JOINED");
+            userOnline[players.size() - 1] = true;
             publish();
             if (players.size() == 3) {
-                gameState = GameState.STARTED;
-                publish();
                 gameState = GameState.NEWHAND;
                 publish();
             }
@@ -59,9 +64,18 @@ public class GameImpl extends Game {
 
     @Override
     public void play(Map<String, String> args) {
+        if (args.containsKey("userOnline") && args.containsKey("userid")
+                && args.get("userOnline").equals("false")) {
+            int userNum = getUserNumber(args.get("userid"));
+            userOnline[userNum] = false;
+            gameState = GameState.ENDED;
+            publish();
+            return;
+        }
         switch (gameState) {
             case NEWHAND: {
-                if (args.containsKey("userid") && args.containsKey("trump") && args.get("userid") == players.get(turn).getUserid()) {
+                if (args.containsKey("userid") && args.containsKey("trump")
+                        && args.get("userid").equals(players.get(turn).getUserid())) {
                     trump = CardType.valueOf(args.get("trump"));
                     setExchangeState();
                     publish();
@@ -69,7 +83,10 @@ public class GameImpl extends Game {
                 break;
             }
             case EXCHANGE01: {
-                if (args.containsKey("userid")) {
+                if (args.containsKey("userid") && args.containsKey("card")
+                        && (args.get("userid").equals(players.get(0).getUserid())
+                        || args.get("userid").equals(players.get(1).getUserid())
+                )) {
                     exchange(0, 1, args);
                     setExchangeState();
                     publish();
@@ -77,7 +94,10 @@ public class GameImpl extends Game {
                 break;
             }
             case EXCHANGE12: {
-                if (args.containsKey("userid")) {
+                if (args.containsKey("userid") && args.containsKey("card")
+                        && (args.get("userid").equals(players.get(2).getUserid())
+                        || args.get("userid").equals(players.get(1).getUserid())
+                )) {
                     exchange(1, 2, args);
                     setExchangeState();
                     publish();
@@ -85,20 +105,106 @@ public class GameImpl extends Game {
                 break;
             }
             case EXCHANGE02: {
-                if (args.containsKey("userid")) {
+                if (args.containsKey("userid") && args.containsKey("card")
+                        && (args.get("userid").equals(players.get(0).getUserid())
+                        || args.get("userid").equals(players.get(2).getUserid())
+                )) {
                     exchange(0, 2, args);
                     setExchangeState();
                     publish();
                 }
                 break;
             }
+            case HAND1:
+            case HAND2:
+            case HAND3:
+            case HAND4:
+            case HAND5:
+            case HAND6:
+            case HAND7:
+            case HAND8:
+            case HAND9:
+            case HAND10: {
+                if (args.containsKey("userid") && args.containsKey("card")
+                        && args.get("userid").equals(players.get(turn).getUserid())) {
+                    int res = playHand(args);
+                    if (res != -1) {
+                        resetCards();
+                        userPoints[res]--;
+                        turn = res;
+                        chance = null;
+                        gameState = GameState.values()[gameState.ordinal() + 1];
+                    } else {
+                        turn = (turn + 1) % 3;
+                    }
+                    publish();
+                }
+                break;
+            }
+            case FINISH: {
+                if (args.containsKey("userOnline") && args.containsKey("userid") &&
+                        args.get("userOnline").equals("true")) {
+                    int userNum = getUserNumber(args.get("userid"));
+                    userOnline[userNum] = true;
+                    if (userOnline[0] && userOnline[1] && userOnline[2]) {
+                        startingUser = (startingUser + 1) % 3;
+                        turn = startingUser;
+                        cards = Deck.getRandomShuffle(3, Deck.HALFDECK);
+                        trump = null;
+                        chance = null;
+                        gameState = GameState.NEWHAND;
+                        publish();
+                    }
+                }
+                break;
+            }
         }
     }
 
+    private int playHand(Map<String, String> args) {
+        int userNum = getUserNumber(args.get("userid"));
+        currentCard[userNum] = Deck.getCard(args.get("card"));
+        if (currentCard[(userNum + 1) % 3] == null
+                && currentCard[(userNum + 2) % 3] == null) {
+            chance = currentCard[userNum].getCardType();
+        } else if (currentCard[(userNum + 1) % 3] != null
+                && currentCard[(userNum + 2) % 3] != null) {
+            return getWinner();
+        }
+        return -1;
+    }
+
+    private int getWinner() {
+        int val0 = getCardValue(0);
+        int val1 = getCardValue(1);
+        int val2 = getCardValue(2);
+        if (val0 > val1 && val0 > val2) return 0;
+        if (val1 > val2) return 1;
+        return 2;
+    }
+
+    private int getCardValue(int id) {
+        Card tmp = currentCard[id];
+        int val = tmp.getCardNumber().ordinal();
+        if (tmp.getCardType().equals(trump)) val += 1000;
+        if (tmp.getCardType().equals(chance)) val += 100;
+        return val;
+    }
+
+    private int getUserNumber(String userid) {
+        if (players.get(0).getUserid().equals(userid)) return 0;
+        if (players.get(1).getUserid().equals(userid)) return 1;
+        if (players.get(2).getUserid().equals(userid)) return 2;
+        return -1;
+    }
+
     private void setExchangeState() {
-        if (userPoints[0] != 0 && userPoints[1] != 0) gameState = GameState.EXCHANGE01;
-        else if (userPoints[1] != 0 && userPoints[2] != 0) gameState = GameState.EXCHANGE12;
-        else if (userPoints[0] != 0 && userPoints[2] != 0) gameState = GameState.EXCHANGE02;
+        if (userPoints[0] > 0 && userPoints[1] < 0 ||
+                userPoints[0] < 0 && userPoints[1] > 0) gameState = GameState.EXCHANGE01;
+        else if (userPoints[1] > 0 && userPoints[2] < 0 ||
+                userPoints[1] < 0 && userPoints[3] > 0) gameState = GameState.EXCHANGE12;
+        else if (userPoints[0] > 0 && userPoints[2] < 0 ||
+                userPoints[0] < 0 && userPoints[2] > 0) gameState = GameState.EXCHANGE02;
         else {
             userPoints[startingUser] = 5;
             userPoints[(startingUser + 1) % 3] = 3;
@@ -108,10 +214,10 @@ public class GameImpl extends Game {
     }
 
     private void exchange(int i, int j, Map<String, String> args) {
-        if (args.get("userid") == players.get(i).getUserid() && args.containsKey("card")) {
+        if (args.get("userid") == players.get(i).getUserid()) {
             currentCard[i] = Deck.getCard(args.get("card"));
         }
-        if (args.get("userid") == players.get(j).getUserid() && args.containsKey("card")) {
+        if (args.get("userid") == players.get(j).getUserid()) {
             currentCard[j] = Deck.getCard(args.get("card"));
         }
         if (currentCard[i] != null && currentCard[j] != null) {
@@ -126,9 +232,13 @@ public class GameImpl extends Game {
                 userPoints[i] += 1;
                 userPoints[j] -= 1;
             }
-            currentCard[0] = null;
-            currentCard[1] = null;
-            currentCard[2] = null;
+            resetCards();
         }
+    }
+
+    private void resetCards() {
+        currentCard[0] = null;
+        currentCard[1] = null;
+        currentCard[2] = null;
     }
 }

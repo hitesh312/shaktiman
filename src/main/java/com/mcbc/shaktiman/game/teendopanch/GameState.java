@@ -2,12 +2,10 @@ package com.mcbc.shaktiman.game.teendopanch;
 
 public enum GameState {
     CREATED,
+    USER0JOINED,
     USER1JOINED,
     USER2JOINED,
-    USER3JOINED,
-    STARTED,
     NEWHAND,
-    TRUMPDECLARED,
     EXCHANGE01,
     EXCHANGE12,
     EXCHANGE02,
@@ -22,6 +20,5 @@ public enum GameState {
     HAND9,
     HAND10,
     FINISH,
-    USERLEFT,
     ENDED
 }
