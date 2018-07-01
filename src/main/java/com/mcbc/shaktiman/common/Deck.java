@@ -48,7 +48,7 @@ public class Deck {
         int handSize = deck.size() / n;
         List<List<Card>> result = new ArrayList<>();
         for (int i = 0; i < deck.size(); i += handSize) {
-            result.add(new ArrayList<>(deck.subList(0, i + handSize)));
+            result.add(new ArrayList<>(deck.subList(i, i + handSize)));
         }
         return result;
     }

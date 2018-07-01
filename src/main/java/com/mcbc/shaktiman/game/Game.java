@@ -15,6 +15,10 @@ public abstract class Game {
         return gameID;
     }
 
+    public List<List<Card>> getCards() {
+        return cards;
+    }
+
     public List<User> getPlayers() {
         return players;
     }

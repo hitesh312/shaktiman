@@ -7,6 +7,8 @@ import com.mcbc.shaktiman.common.User;
 import com.mcbc.shaktiman.game.Game;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public class GameImpl extends Game {
@@ -15,10 +17,14 @@ public class GameImpl extends Game {
     private CardType trump = null;
     private CardType chance = null;
     private Card[] currentCard;
-    private int startingUser = 0;
-    private int turn = 0;
+    private int startingUser;
+    private int turn;
     private int[] userPoints;
     private boolean[] userOnline;
+
+    public GameState getGameState() {
+        return gameState;
+    }
 
     public GameImpl(String gameID) {
         startingUser = 0;
@@ -60,6 +66,48 @@ public class GameImpl extends Game {
 
 
     private void publish() {
+        System.out.println(this);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder cardStr = new StringBuilder();
+        cardStr.append('[');
+        for (List<Card> set : cards) {
+            cardStr.append('[');
+            for (Card c : set)
+                cardStr.append('\'').append(c).append("',");
+            if (cardStr.charAt(cardStr.length() - 1) == ',') cardStr.deleteCharAt(cardStr.length() - 1);
+            cardStr.append("],");
+        }
+        if (cardStr.charAt(cardStr.length() - 1) == ',') cardStr.deleteCharAt(cardStr.length() - 1);
+        cardStr.append(']');
+
+        StringBuilder playerStr = new StringBuilder();
+        playerStr.append('[');
+        for (User user : players)
+            playerStr.append("{'userid':'").append(user.getUserid())
+                    .append("','name':'").append(user.getName()).append("'},");
+        if (playerStr.charAt(playerStr.length() - 1) == ',') playerStr.deleteCharAt(playerStr.length() - 1);
+        playerStr.append(']');
+
+        StringBuilder currentCardStr = new StringBuilder();
+        currentCardStr.append("['").append(currentCard[0]).append("','")
+                .append(currentCard[1]).append("','").append(currentCard[2]).append("']");
+
+        return "{" +
+                "'gameState':'" + gameState +
+                "', 'trump':'" + trump +
+                "', 'chance':'" + chance +
+                "', 'currentCard':" + currentCardStr +
+                ", 'startingUser':" + startingUser +
+                ", 'turn':" + turn +
+                ", 'userPoints':" + Arrays.toString(userPoints) +
+                ", 'userOnline':" + Arrays.toString(userOnline) +
+                ", 'gameID':'" + gameID +
+                "', 'players':" + playerStr.toString() +
+                ", 'cards':" + cardStr.toString() +
+                '}';
     }
 
     @Override
@@ -87,7 +135,10 @@ public class GameImpl extends Game {
                         && (args.get("userid").equals(players.get(0).getUserid())
                         || args.get("userid").equals(players.get(1).getUserid())
                 )) {
-                    exchange(0, 1, args);
+                    if (exchange(0, 1, args)) {
+                        publish();
+                        resetCards();
+                    }
                     setExchangeState();
                     publish();
                 }
@@ -98,7 +149,10 @@ public class GameImpl extends Game {
                         && (args.get("userid").equals(players.get(2).getUserid())
                         || args.get("userid").equals(players.get(1).getUserid())
                 )) {
-                    exchange(1, 2, args);
+                    if (exchange(1, 2, args)) {
+                        publish();
+                        resetCards();
+                    }
                     setExchangeState();
                     publish();
                 }
@@ -109,7 +163,10 @@ public class GameImpl extends Game {
                         && (args.get("userid").equals(players.get(0).getUserid())
                         || args.get("userid").equals(players.get(2).getUserid())
                 )) {
-                    exchange(0, 2, args);
+                    if (exchange(0, 2, args)) {
+                        publish();
+                        resetCards();
+                    }
                     setExchangeState();
                     publish();
                 }
@@ -129,9 +186,10 @@ public class GameImpl extends Game {
                         && args.get("userid").equals(players.get(turn).getUserid())) {
                     int res = playHand(args);
                     if (res != -1) {
-                        resetCards();
                         userPoints[res]--;
                         turn = res;
+                        publish();
+                        resetCards();
                         chance = null;
                         gameState = GameState.values()[gameState.ordinal() + 1];
                     } else {
@@ -169,6 +227,9 @@ public class GameImpl extends Game {
             chance = currentCard[userNum].getCardType();
         } else if (currentCard[(userNum + 1) % 3] != null
                 && currentCard[(userNum + 2) % 3] != null) {
+            cards.get(0).remove(currentCard[0]);
+            cards.get(1).remove(currentCard[1]);
+            cards.get(2).remove(currentCard[2]);
             return getWinner();
         }
         return -1;
@@ -202,7 +263,7 @@ public class GameImpl extends Game {
         if (userPoints[0] > 0 && userPoints[1] < 0 ||
                 userPoints[0] < 0 && userPoints[1] > 0) gameState = GameState.EXCHANGE01;
         else if (userPoints[1] > 0 && userPoints[2] < 0 ||
-                userPoints[1] < 0 && userPoints[3] > 0) gameState = GameState.EXCHANGE12;
+                userPoints[1] < 0 && userPoints[2] > 0) gameState = GameState.EXCHANGE12;
         else if (userPoints[0] > 0 && userPoints[2] < 0 ||
                 userPoints[0] < 0 && userPoints[2] > 0) gameState = GameState.EXCHANGE02;
         else {
@@ -213,11 +274,11 @@ public class GameImpl extends Game {
         }
     }
 
-    private void exchange(int i, int j, Map<String, String> args) {
-        if (args.get("userid") == players.get(i).getUserid()) {
+    private boolean exchange(int i, int j, Map<String, String> args) {
+        if (args.get("userid").equals(players.get(i).getUserid())) {
             currentCard[i] = Deck.getCard(args.get("card"));
         }
-        if (args.get("userid") == players.get(j).getUserid()) {
+        if (args.get("userid").equals(players.get(j).getUserid())) {
             currentCard[j] = Deck.getCard(args.get("card"));
         }
         if (currentCard[i] != null && currentCard[j] != null) {
@@ -232,8 +293,9 @@ public class GameImpl extends Game {
                 userPoints[i] += 1;
                 userPoints[j] -= 1;
             }
-            resetCards();
+            return true;
         }
+        return false;
     }
 
     private void resetCards() {
